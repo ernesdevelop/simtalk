@@ -20,6 +20,12 @@ interface Props {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+const appendTranscript = (base: string, addition: string) => {
+  const text = addition.trim();
+  if (!text || base.trim().endsWith(text)) return base.trim();
+  return `${base.trim()}${base.trim() ? " " : ""}${text}`;
+};
+
 const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => {
   const [messages, setMessages] = useState<Msg[]>([
     { role: "assistant", content: scenario.opener },
@@ -30,46 +36,34 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
 
   const tts = useTTS();
   const lastSpokenRef = useRef<string>("");
-  const interimTextRef = useRef("");
   const inputRef = useRef("");
+  const voiceFinalRef = useRef("");
+  const voiceInterimRef = useRef("");
   const autoSendRef = useRef(false);
   const dictation = useDictation({
     lang: "es-ES",
     onFinal: (t) => {
-      const finalText = t.trim();
-      setInput((prev) => {
-        const base = interimTextRef.current
-          ? prev.slice(0, -interimTextRef.current.length).trimEnd()
-          : prev.trimEnd();
-        interimTextRef.current = "";
-        const next = finalText
-          ? `${base}${base ? " " : ""}${finalText}`
-          : base;
-        inputRef.current = next;
-        return next;
-      });
+      voiceFinalRef.current = appendTranscript(voiceFinalRef.current, t);
+      voiceInterimRef.current = "";
     },
     onInterim: (t) => {
-      setInput((prev) => {
-        const base = interimTextRef.current ? prev.slice(0, -interimTextRef.current.length).trimEnd() : prev;
-        interimTextRef.current = t;
-        const next = t ? `${base}${base ? " " : ""}${t}` : base;
-        inputRef.current = next;
-        return next;
-      });
+      voiceInterimRef.current = t.trim();
     },
     onStop: () => {
-      interimTextRef.current = "";
       if (autoSendRef.current) {
         autoSendRef.current = false;
-        const text = inputRef.current.trim();
+        const text = appendTranscript(voiceFinalRef.current, voiceInterimRef.current);
+        voiceFinalRef.current = "";
+        voiceInterimRef.current = "";
         if (text) {
-          // pequeño delay para asegurar que setInput haya aplicado el último valor
-          setTimeout(() => sendRef.current?.(), 50);
+          setTimeout(() => sendRef.current?.(text), 50);
         }
       }
     },
     onError: (error) => {
+      autoSendRef.current = false;
+      voiceFinalRef.current = "";
+      voiceInterimRef.current = "";
       if (error === "not-allowed" || error === "service-not-allowed") {
         toast.error("Safari no tiene permiso para usar el micrófono. Revisa Ajustes > Safari > Micrófono.");
       } else if (error === "no-speech") {
