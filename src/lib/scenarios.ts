@@ -10,6 +10,7 @@ export interface Scenario {
   icon: LucideIcon;
   gradient: "primary" | "hostile" | "calm";
   opener: string;
+  isCustom?: boolean;
 }
 
 export const scenarios: Scenario[] = [
