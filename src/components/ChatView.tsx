@@ -27,6 +27,50 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const tts = useTTS();
+  const lastSpokenRef = useRef<string>("");
+  const dictation = useDictation({
+    lang: "es-ES",
+    onFinal: (t) => setInput((prev) => (prev ? prev.trimEnd() + " " : "") + t.trim()),
+  });
+
+  // Habla el primer mensaje al montar
+  useEffect(() => {
+    if (tts.enabled && tts.supported && scenario.opener) {
+      lastSpokenRef.current = scenario.opener;
+      tts.speak(scenario.opener);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Habla la última respuesta del asistente cuando termina el streaming
+  useEffect(() => {
+    if (isStreaming) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (last.content === lastSpokenRef.current) return;
+    lastSpokenRef.current = last.content;
+    if (tts.enabled) tts.speak(last.content);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming, messages]);
+
+  const toggleVoice = () => {
+    if (tts.speaking) tts.cancel();
+    tts.setEnabled(!tts.enabled);
+  };
+
+  const toggleMic = () => {
+    if (!dictation.supported) {
+      toast.error("Tu navegador no soporta dictado por voz. Prueba Chrome o Edge.");
+      return;
+    }
+    if (dictation.listening) dictation.stop();
+    else {
+      tts.cancel(); // evita captar la voz de la IA
+      dictation.start();
+    }
+  };
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isStreaming]);
