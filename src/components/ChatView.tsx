@@ -36,9 +36,15 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const dictation = useDictation({
     lang: "es-ES",
     onFinal: (t) => {
-      interimTextRef.current = "";
+      const finalText = t.trim();
       setInput((prev) => {
-        const next = (prev ? prev.trimEnd() + " " : "") + t.trim();
+        const base = interimTextRef.current
+          ? prev.slice(0, -interimTextRef.current.length).trimEnd()
+          : prev.trimEnd();
+        interimTextRef.current = "";
+        const next = finalText
+          ? `${base}${base ? " " : ""}${finalText}`
+          : base;
         inputRef.current = next;
         return next;
       });
@@ -317,7 +323,11 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
           <div className="flex items-end gap-2">
             <Textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                interimTextRef.current = "";
+                inputRef.current = e.target.value;
+                setInput(e.target.value);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
