@@ -1,16 +1,56 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import ScenarioPicker from "@/components/ScenarioPicker";
+import ChatView, { type Msg } from "@/components/ChatView";
+import FeedbackView from "@/components/FeedbackView";
+import type { Scenario, Hostility } from "@/lib/scenarios";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+type Stage = "pick" | "chat" | "feedback";
+
+const Index = () => {
+  const [stage, setStage] = useState<Stage>("pick");
+  const [scenario, setScenario] = useState<Scenario | null>(null);
+  const [hostility, setHostility] = useState<Hostility>("medium");
+  const [chatMessages, setChatMessages] = useState<Msg[]>([]);
+
+  const handleStart = (s: Scenario, h: Hostility) => {
+    setScenario(s);
+    setHostility(h);
+    setStage("chat");
+  };
+
+  const handleRequestFeedback = (messages: Msg[]) => {
+    setChatMessages(messages);
+    setStage("feedback");
+  };
+
+  const handleRestart = () => {
+    setScenario(null);
+    setChatMessages([]);
+    setStage("pick");
+  };
+
+  if (stage === "pick" || !scenario) return <ScenarioPicker onStart={handleStart} />;
+
+  if (stage === "chat") {
+    return (
+      <ChatView
+        scenario={scenario}
+        hostility={hostility}
+        onBack={handleRestart}
+        onRequestFeedback={handleRequestFeedback}
+      />
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
-    </div>
+    <FeedbackView
+      messages={chatMessages}
+      scenario={scenario}
+      hostility={hostility}
+      onBack={() => setStage("chat")}
+      onRestart={handleRestart}
+    />
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
