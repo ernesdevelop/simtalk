@@ -117,6 +117,8 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     } else {
       tts.cancel(); // evita captar la voz de la IA
       autoSendRef.current = false;
+      voiceFinalRef.current = "";
+      voiceInterimRef.current = "";
       dictation.start(); // llamada síncrona desde el gesto del usuario (crítico en iOS)
     }
   };
@@ -125,10 +127,10 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isStreaming]);
 
-  const sendRef = useRef<() => void>();
+  const sendRef = useRef<(overrideText?: string) => void>();
 
-  const send = async () => {
-    const text = (inputRef.current || input).trim();
+  const send = async (overrideText?: string) => {
+    const text = (overrideText ?? inputRef.current || input).trim();
     if (!text || isStreaming) return;
 
     const userMsg: Msg = { role: "user", content: text };
@@ -318,7 +320,6 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
             <Textarea
               value={input}
               onChange={(e) => {
-                interimTextRef.current = "";
                 inputRef.current = e.target.value;
                 setInput(e.target.value);
               }}
@@ -328,10 +329,10 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
                   send();
                 }
               }}
-              placeholder="Escribe tu respuesta…"
+              placeholder={dictation.listening ? "Escuchando…" : "Escribe tu respuesta…"}
               rows={1}
               className="min-h-[48px] max-h-32 resize-none rounded-xl bg-card"
-              disabled={isStreaming}
+              disabled={isStreaming || dictation.listening}
             />
             <Button
               onClick={toggleMic}
