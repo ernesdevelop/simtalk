@@ -112,9 +112,11 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
       return;
     }
     if (dictation.listening) {
+      autoSendRef.current = true;
       dictation.stop();
     } else {
       tts.cancel(); // evita captar la voz de la IA
+      autoSendRef.current = false;
       dictation.start(); // llamada síncrona desde el gesto del usuario (crítico en iOS)
     }
   };
@@ -123,14 +125,17 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isStreaming]);
 
+  const sendRef = useRef<() => void>();
+
   const send = async () => {
-    const text = input.trim();
+    const text = (inputRef.current || input).trim();
     if (!text || isStreaming) return;
 
     const userMsg: Msg = { role: "user", content: text };
     const next = [...messages, userMsg];
     setMessages(next);
     setInput("");
+    inputRef.current = "";
     setIsStreaming(true);
 
     try {
