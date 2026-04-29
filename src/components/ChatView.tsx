@@ -222,7 +222,7 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               </button>
               <button
                 type="button"
-                onClick={() => { tts.cancel(); tts.setGender("male"); }}
+                onClick={() => chooseGender("male")}
                 title="Voz masculina"
                 className={cn(
                   "h-9 px-2 text-xs font-medium border-l border-border transition-colors",
