@@ -62,13 +62,21 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
 
   const toggleMic = () => {
     if (!dictation.supported) {
-      toast.error("Tu navegador no soporta dictado por voz. Prueba Chrome o Edge.");
+      const ua = navigator.userAgent;
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+      const isIOSChromeOrFirefox = isIOS && /CriOS|FxiOS/i.test(ua);
+      if (isIOSChromeOrFirefox) {
+        toast.error("En iPhone, el dictado por voz solo funciona en Safari. Abre la app desde Safari.");
+      } else {
+        toast.error("Tu navegador no soporta dictado por voz. Prueba Safari (iPhone) o Chrome.");
+      }
       return;
     }
-    if (dictation.listening) dictation.stop();
-    else {
+    if (dictation.listening) {
+      dictation.stop();
+    } else {
       tts.cancel(); // evita captar la voz de la IA
-      dictation.start();
+      dictation.start(); // llamada síncrona desde el gesto del usuario (crítico en iOS)
     }
   };
 
