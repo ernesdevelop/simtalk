@@ -20,6 +20,12 @@ interface Props {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+const appendTranscript = (base: string, addition: string) => {
+  const text = addition.trim();
+  if (!text || base.trim().endsWith(text)) return base.trim();
+  return `${base.trim()}${base.trim() ? " " : ""}${text}`;
+};
+
 const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => {
   const [messages, setMessages] = useState<Msg[]>([
     { role: "assistant", content: scenario.opener },
@@ -30,46 +36,34 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
 
   const tts = useTTS();
   const lastSpokenRef = useRef<string>("");
-  const interimTextRef = useRef("");
   const inputRef = useRef("");
+  const voiceFinalRef = useRef("");
+  const voiceInterimRef = useRef("");
   const autoSendRef = useRef(false);
   const dictation = useDictation({
     lang: "es-ES",
     onFinal: (t) => {
-      const finalText = t.trim();
-      setInput((prev) => {
-        const base = interimTextRef.current
-          ? prev.slice(0, -interimTextRef.current.length).trimEnd()
-          : prev.trimEnd();
-        interimTextRef.current = "";
-        const next = finalText
-          ? `${base}${base ? " " : ""}${finalText}`
-          : base;
-        inputRef.current = next;
-        return next;
-      });
+      voiceFinalRef.current = appendTranscript(voiceFinalRef.current, t);
+      voiceInterimRef.current = "";
     },
     onInterim: (t) => {
-      setInput((prev) => {
-        const base = interimTextRef.current ? prev.slice(0, -interimTextRef.current.length).trimEnd() : prev;
-        interimTextRef.current = t;
-        const next = t ? `${base}${base ? " " : ""}${t}` : base;
-        inputRef.current = next;
-        return next;
-      });
+      voiceInterimRef.current = t.trim();
     },
     onStop: () => {
-      interimTextRef.current = "";
       if (autoSendRef.current) {
         autoSendRef.current = false;
-        const text = inputRef.current.trim();
+        const text = appendTranscript(voiceFinalRef.current, voiceInterimRef.current);
+        voiceFinalRef.current = "";
+        voiceInterimRef.current = "";
         if (text) {
-          // pequeño delay para asegurar que setInput haya aplicado el último valor
-          setTimeout(() => sendRef.current?.(), 50);
+          setTimeout(() => sendRef.current?.(text), 50);
         }
       }
     },
     onError: (error) => {
+      autoSendRef.current = false;
+      voiceFinalRef.current = "";
+      voiceInterimRef.current = "";
       if (error === "not-allowed" || error === "service-not-allowed") {
         toast.error("Safari no tiene permiso para usar el micrófono. Revisa Ajustes > Safari > Micrófono.");
       } else if (error === "no-speech") {
@@ -123,6 +117,8 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     } else {
       tts.cancel(); // evita captar la voz de la IA
       autoSendRef.current = false;
+      voiceFinalRef.current = "";
+      voiceInterimRef.current = "";
       dictation.start(); // llamada síncrona desde el gesto del usuario (crítico en iOS)
     }
   };
@@ -131,10 +127,10 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isStreaming]);
 
-  const sendRef = useRef<() => void>();
+  const sendRef = useRef<(overrideText?: string) => void>();
 
-  const send = async () => {
-    const text = (inputRef.current || input).trim();
+  const send = async (overrideText?: string) => {
+    const text = ((overrideText ?? inputRef.current) || input).trim();
     if (!text || isStreaming) return;
 
     const userMsg: Msg = { role: "user", content: text };
@@ -324,7 +320,6 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
             <Textarea
               value={input}
               onChange={(e) => {
-                interimTextRef.current = "";
                 inputRef.current = e.target.value;
                 setInput(e.target.value);
               }}
@@ -334,10 +329,10 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
                   send();
                 }
               }}
-              placeholder="Escribe tu respuesta…"
+              placeholder={dictation.listening ? "Escuchando…" : "Escribe tu respuesta…"}
               rows={1}
               className="min-h-[48px] max-h-32 resize-none rounded-xl bg-card"
-              disabled={isStreaming}
+              disabled={isStreaming || dictation.listening}
             />
             <Button
               onClick={toggleMic}
@@ -353,7 +348,7 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               {dictation.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
             </Button>
             <Button
-              onClick={send}
+              onClick={() => send()}
               disabled={!input.trim() || isStreaming}
               size="icon"
               className="h-12 w-12 shrink-0 gradient-primary text-primary-foreground hover:opacity-95"
