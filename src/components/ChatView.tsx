@@ -130,7 +130,7 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const sendRef = useRef<(overrideText?: string) => void>();
 
   const send = async (overrideText?: string) => {
-    const text = (overrideText ?? inputRef.current || input).trim();
+    const text = ((overrideText ?? inputRef.current) || input).trim();
     if (!text || isStreaming) return;
 
     const userMsg: Msg = { role: "user", content: text };
@@ -348,7 +348,7 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               {dictation.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
             </Button>
             <Button
-              onClick={send}
+              onClick={() => send()}
               disabled={!input.trim() || isStreaming}
               size="icon"
               className="h-12 w-12 shrink-0 gradient-primary text-primary-foreground hover:opacity-95"
