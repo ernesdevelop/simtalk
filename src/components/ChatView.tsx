@@ -31,21 +31,37 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const tts = useTTS();
   const lastSpokenRef = useRef<string>("");
   const interimTextRef = useRef("");
+  const inputRef = useRef("");
+  const autoSendRef = useRef(false);
   const dictation = useDictation({
     lang: "es-ES",
     onFinal: (t) => {
       interimTextRef.current = "";
-      setInput((prev) => (prev ? prev.trimEnd() + " " : "") + t.trim());
+      setInput((prev) => {
+        const next = (prev ? prev.trimEnd() + " " : "") + t.trim();
+        inputRef.current = next;
+        return next;
+      });
     },
     onInterim: (t) => {
       setInput((prev) => {
         const base = interimTextRef.current ? prev.slice(0, -interimTextRef.current.length).trimEnd() : prev;
         interimTextRef.current = t;
-        return t ? `${base}${base ? " " : ""}${t}` : base;
+        const next = t ? `${base}${base ? " " : ""}${t}` : base;
+        inputRef.current = next;
+        return next;
       });
     },
     onStop: () => {
       interimTextRef.current = "";
+      if (autoSendRef.current) {
+        autoSendRef.current = false;
+        const text = inputRef.current.trim();
+        if (text) {
+          // pequeño delay para asegurar que setInput haya aplicado el último valor
+          setTimeout(() => sendRef.current?.(), 50);
+        }
+      }
     },
     onError: (error) => {
       if (error === "not-allowed" || error === "service-not-allowed") {
@@ -96,9 +112,11 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
       return;
     }
     if (dictation.listening) {
+      autoSendRef.current = true;
       dictation.stop();
     } else {
       tts.cancel(); // evita captar la voz de la IA
+      autoSendRef.current = false;
       dictation.start(); // llamada síncrona desde el gesto del usuario (crítico en iOS)
     }
   };
@@ -107,14 +125,17 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isStreaming]);
 
+  const sendRef = useRef<() => void>();
+
   const send = async () => {
-    const text = input.trim();
+    const text = (inputRef.current || input).trim();
     if (!text || isStreaming) return;
 
     const userMsg: Msg = { role: "user", content: text };
     const next = [...messages, userMsg];
     setMessages(next);
     setInput("");
+    inputRef.current = "";
     setIsStreaming(true);
 
     try {
@@ -193,6 +214,8 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
       setIsStreaming(false);
     }
   };
+
+  sendRef.current = send;
 
   const userMsgCount = messages.filter((m) => m.role === "user").length;
   const canFeedback = userMsgCount >= 2 && !isStreaming;
