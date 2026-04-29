@@ -30,9 +30,32 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
 
   const tts = useTTS();
   const lastSpokenRef = useRef<string>("");
+  const interimTextRef = useRef("");
   const dictation = useDictation({
     lang: "es-ES",
-    onFinal: (t) => setInput((prev) => (prev ? prev.trimEnd() + " " : "") + t.trim()),
+    onFinal: (t) => {
+      interimTextRef.current = "";
+      setInput((prev) => (prev ? prev.trimEnd() + " " : "") + t.trim());
+    },
+    onInterim: (t) => {
+      setInput((prev) => {
+        const base = interimTextRef.current ? prev.slice(0, -interimTextRef.current.length).trimEnd() : prev;
+        interimTextRef.current = t;
+        return t ? `${base}${base ? " " : ""}${t}` : base;
+      });
+    },
+    onStop: () => {
+      interimTextRef.current = "";
+    },
+    onError: (error) => {
+      if (error === "not-allowed" || error === "service-not-allowed") {
+        toast.error("Safari no tiene permiso para usar el micrófono. Revisa Ajustes > Safari > Micrófono.");
+      } else if (error === "no-speech") {
+        toast.error("No detecté voz. Toca el micrófono y habla después de aceptar el permiso.");
+      } else {
+        toast.error("No pude iniciar el dictado en este momento. Intenta tocar el micrófono otra vez.");
+      }
+    },
   });
 
   // Habla el primer mensaje al montar

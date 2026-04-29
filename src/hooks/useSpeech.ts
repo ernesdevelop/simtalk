@@ -18,9 +18,11 @@ interface UseDictationOptions {
   lang?: string;
   onFinal: (text: string) => void;
   onInterim?: (text: string) => void;
+  onStop?: () => void;
+  onError?: (error: string) => void;
 }
 
-export function useDictation({ lang = "es-ES", onFinal, onInterim }: UseDictationOptions) {
+export function useDictation({ lang = "es-ES", onFinal, onInterim, onStop, onError }: UseDictationOptions) {
   const [listening, setListening] = useState(false);
   const recRef = useRef<SR | null>(null);
   const listeningRef = useRef(false);
@@ -28,8 +30,12 @@ export function useDictation({ lang = "es-ES", onFinal, onInterim }: UseDictatio
   // Refs estables para los callbacks (evita recrear `start` y perder el gesto en iOS)
   const onFinalRef = useRef(onFinal);
   const onInterimRef = useRef(onInterim);
+  const onStopRef = useRef(onStop);
+  const onErrorRef = useRef(onError);
   useEffect(() => { onFinalRef.current = onFinal; }, [onFinal]);
   useEffect(() => { onInterimRef.current = onInterim; }, [onInterim]);
+  useEffect(() => { onStopRef.current = onStop; }, [onStop]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
@@ -54,6 +60,7 @@ export function useDictation({ lang = "es-ES", onFinal, onInterim }: UseDictatio
     rec.maxAlternatives = 1;
 
     let finalBuffer = "";
+    let lastInterim = "";
 
     rec.onresult = (e: any) => {
       let interim = "";
@@ -63,20 +70,33 @@ export function useDictation({ lang = "es-ES", onFinal, onInterim }: UseDictatio
         if (res.isFinal) finalBuffer += transcript;
         else interim += transcript;
       }
-      if (interim) onInterimRef.current?.(interim);
+      if (interim) {
+        lastInterim = interim;
+        onInterimRef.current?.(interim);
+      }
       if (finalBuffer) {
         onFinalRef.current?.(finalBuffer);
+        lastInterim = "";
+        onInterimRef.current?.("");
         finalBuffer = "";
       }
     };
     rec.onend = () => {
+      // En iOS Safari a veces solo llega resultado parcial. Lo confirmamos al finalizar.
+      if (lastInterim.trim()) onFinalRef.current?.(lastInterim);
+      lastInterim = "";
+      onInterimRef.current?.("");
       listeningRef.current = false;
       setListening(false);
+      onStopRef.current?.();
     };
     rec.onerror = (e: any) => {
-      console.warn("[dictation] error:", e?.error || e);
+      const error = e?.error || String(e);
+      console.warn("[dictation] error:", error);
       listeningRef.current = false;
       setListening(false);
+      onInterimRef.current?.("");
+      onErrorRef.current?.(error);
     };
 
     recRef.current = rec;
