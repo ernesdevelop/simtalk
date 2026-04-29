@@ -180,19 +180,47 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
             </div>
           </div>
           {tts.supported && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleVoice}
-              className="shrink-0"
-              title={tts.enabled ? "Silenciar voz de la IA" : "Activar voz de la IA"}
-            >
-              {tts.enabled ? (
-                <Volume2 className={cn("h-5 w-5", tts.speaking && "text-primary animate-pulse")} />
-              ) : (
-                <VolumeX className="h-5 w-5 text-muted-foreground" />
-              )}
-            </Button>
+            <div className="flex items-center rounded-lg border border-border bg-card overflow-hidden shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleVoice}
+                className="h-9 w-9 rounded-none"
+                title={tts.enabled ? "Silenciar voz de la IA" : "Activar voz de la IA"}
+              >
+                {tts.enabled ? (
+                  <Volume2 className={cn("h-4 w-4", tts.speaking && "text-primary animate-pulse")} />
+                ) : (
+                  <VolumeX className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+              <button
+                type="button"
+                onClick={() => { tts.cancel(); tts.setGender("female"); }}
+                title="Voz femenina"
+                className={cn(
+                  "h-9 px-2 text-xs font-medium border-l border-border transition-colors",
+                  tts.gender === "female"
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                ♀
+              </button>
+              <button
+                type="button"
+                onClick={() => { tts.cancel(); tts.setGender("male"); }}
+                title="Voz masculina"
+                className={cn(
+                  "h-9 px-2 text-xs font-medium border-l border-border transition-colors",
+                  tts.gender === "male"
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                ♂
+              </button>
+            </div>
           )}
           <Button
             onClick={() => onRequestFeedback(messages)}
