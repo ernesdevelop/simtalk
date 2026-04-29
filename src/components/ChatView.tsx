@@ -304,6 +304,12 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
           )}
         </div>
       </div>
+
+      <InstallVoiceDialog
+        open={installDialogOpen}
+        onOpenChange={setInstallDialogOpen}
+        gender={requestedGender}
+      />
     </div>
   );
 };
