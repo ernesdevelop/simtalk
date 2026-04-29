@@ -132,7 +132,19 @@ export function useTTS() {
   const [speaking, setSpeaking] = useState(false);
   const [enabled, setEnabled] = useState(true);
   const [gender, setGenderState] = useState<VoiceGender>(loadGender);
+  const [voicesVersion, setVoicesVersion] = useState(0);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Recarga cuando el SO añade/quita voces (ej. usuario instala una nueva)
+  useEffect(() => {
+    if (!isSpeechSynthesisSupported()) return;
+    const handler = () => {
+      loadVoices();
+      setVoicesVersion((v) => v + 1);
+    };
+    window.speechSynthesis.addEventListener?.("voiceschanged", handler);
+    return () => window.speechSynthesis.removeEventListener?.("voiceschanged", handler);
+  }, []);
 
   const setGender = useCallback((g: VoiceGender) => {
     setGenderState(g);
@@ -145,6 +157,15 @@ export function useTTS() {
     setSpeaking(false);
   }, []);
 
+  const hasVoiceFor = useCallback(
+    (g: VoiceGender) => {
+      void voicesVersion; // recompute when voices change
+      const voices = cachedVoices.length ? cachedVoices : loadVoices();
+      return voices.some((v) => /^es/i.test(v.lang) && guessGender(v) === g);
+    },
+    [voicesVersion]
+  );
+
   const speak = useCallback(
     (text: string) => {
       if (!enabled || !text || !isSpeechSynthesisSupported()) return;
@@ -154,7 +175,6 @@ export function useTTS() {
       if (v) u.voice = v;
       u.lang = v?.lang || "es-ES";
       u.rate = 1;
-      // Si no encontramos voz del género solicitado, ajustamos pitch como fallback
       const matched = v ? guessGender(v) === gender : false;
       u.pitch = matched ? 1 : gender === "female" ? 1.25 : 0.8;
       u.onstart = () => setSpeaking(true);
@@ -163,7 +183,7 @@ export function useTTS() {
       utterRef.current = u;
       window.speechSynthesis.speak(u);
     },
-    [enabled, gender]
+    [enabled, gender, voicesVersion]
   );
 
   useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch {} }, []);
@@ -176,7 +196,23 @@ export function useTTS() {
     setEnabled,
     gender,
     setGender,
+    hasVoiceFor,
     supported: isSpeechSynthesisSupported(),
   };
 }
+
+// ---------- Detección de SO para guiar la instalación ----------
+export type OS = "windows" | "macos" | "ios" | "android" | "linux" | "unknown";
+
+export const detectOS = (): OS => {
+  if (typeof navigator === "undefined") return "unknown";
+  const ua = navigator.userAgent;
+  if (/Windows/i.test(ua)) return "windows";
+  if (/Android/i.test(ua)) return "android";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Mac OS X/i.test(ua)) return "macos";
+  if (/Linux/i.test(ua)) return "linux";
+  return "unknown";
+};
+
 

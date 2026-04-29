@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Scenario, Hostility } from "@/lib/scenarios";
 import { hostilityLabels } from "@/lib/scenarios";
-import { useDictation, useTTS } from "@/hooks/useSpeech";
+import { useDictation, useTTS, type VoiceGender } from "@/hooks/useSpeech";
+import InstallVoiceDialog from "./InstallVoiceDialog";
 
 export type Msg = { role: "user" | "assistant"; content: string };
 
@@ -166,6 +167,18 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const canFeedback = userMsgCount >= 2 && !isStreaming;
   const meta = hostilityLabels[hostility];
 
+  const [installDialogOpen, setInstallDialogOpen] = useState(false);
+  const [requestedGender, setRequestedGender] = useState<VoiceGender>(tts.gender);
+
+  const chooseGender = (g: VoiceGender) => {
+    tts.cancel();
+    tts.setGender(g);
+    if (tts.supported && !tts.hasVoiceFor(g)) {
+      setRequestedGender(g);
+      setInstallDialogOpen(true);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-lg">
@@ -196,7 +209,7 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               </Button>
               <button
                 type="button"
-                onClick={() => { tts.cancel(); tts.setGender("female"); }}
+                onClick={() => chooseGender("female")}
                 title="Voz femenina"
                 className={cn(
                   "h-9 px-2 text-xs font-medium border-l border-border transition-colors",
@@ -209,7 +222,7 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               </button>
               <button
                 type="button"
-                onClick={() => { tts.cancel(); tts.setGender("male"); }}
+                onClick={() => chooseGender("male")}
                 title="Voz masculina"
                 className={cn(
                   "h-9 px-2 text-xs font-medium border-l border-border transition-colors",
@@ -291,6 +304,12 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
           )}
         </div>
       </div>
+
+      <InstallVoiceDialog
+        open={installDialogOpen}
+        onOpenChange={setInstallDialogOpen}
+        gender={requestedGender}
+      />
     </div>
   );
 };
