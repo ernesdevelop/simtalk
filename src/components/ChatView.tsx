@@ -167,6 +167,18 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const canFeedback = userMsgCount >= 2 && !isStreaming;
   const meta = hostilityLabels[hostility];
 
+  const [installDialogOpen, setInstallDialogOpen] = useState(false);
+  const [requestedGender, setRequestedGender] = useState<VoiceGender>(tts.gender);
+
+  const chooseGender = (g: VoiceGender) => {
+    tts.cancel();
+    tts.setGender(g);
+    if (tts.supported && !tts.hasVoiceFor(g)) {
+      setRequestedGender(g);
+      setInstallDialogOpen(true);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-lg">
