@@ -235,6 +235,19 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               disabled={isStreaming}
             />
             <Button
+              onClick={toggleMic}
+              disabled={isStreaming}
+              size="icon"
+              variant={dictation.listening ? "default" : "outline"}
+              className={cn(
+                "h-12 w-12 shrink-0 rounded-xl",
+                dictation.listening && "bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse"
+              )}
+              title={dictation.listening ? "Detener dictado" : "Dictar respuesta"}
+            >
+              {dictation.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
+            <Button
               onClick={send}
               disabled={!input.trim() || isStreaming}
               size="icon"
