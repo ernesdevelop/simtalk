@@ -179,6 +179,21 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               Hostilidad: <span className={meta.color}>{meta.label}</span>
             </div>
           </div>
+          {tts.supported && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleVoice}
+              className="shrink-0"
+              title={tts.enabled ? "Silenciar voz de la IA" : "Activar voz de la IA"}
+            >
+              {tts.enabled ? (
+                <Volume2 className={cn("h-5 w-5", tts.speaking && "text-primary animate-pulse")} />
+              ) : (
+                <VolumeX className="h-5 w-5 text-muted-foreground" />
+              )}
+            </Button>
+          )}
           <Button
             onClick={() => onRequestFeedback(messages)}
             disabled={!canFeedback}
