@@ -73,6 +73,8 @@ export function useDictation({ lang = "es-ES", onFinal, onInterim }: UseDictatio
 }
 
 // ---------- Speech Synthesis (TTS nativo) ----------
+export type VoiceGender = "female" | "male";
+
 export const isSpeechSynthesisSupported = () =>
   typeof window !== "undefined" && "speechSynthesis" in window;
 
@@ -87,19 +89,55 @@ if (isSpeechSynthesisSupported()) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
 }
 
-const pickSpanishVoice = (): SpeechSynthesisVoice | undefined => {
+// Heurística por nombre — Web Speech API no expone género
+const FEMALE_HINTS = /(female|mujer|woman|elena|monica|mónica|paulina|lucia|lucía|marisol|esperanza|sabina|helena|carmen|laura|sofia|sofía|isabel|google.*español.*(?!hombre)|samantha|victoria|zira)/i;
+const MALE_HINTS = /(male|hombre|man|jorge|diego|enrique|carlos|juan|pablo|miguel|alex|luca|paul|daniel|reed)/i;
+
+const guessGender = (v: SpeechSynthesisVoice): VoiceGender | null => {
+  const n = v.name;
+  if (FEMALE_HINTS.test(n)) return "female";
+  if (MALE_HINTS.test(n)) return "male";
+  return null;
+};
+
+const pickSpanishVoice = (gender: VoiceGender): SpeechSynthesisVoice | undefined => {
   const voices = cachedVoices.length ? cachedVoices : loadVoices();
-  return (
-    voices.find((v) => /es-ES/i.test(v.lang) && /female|mujer|elena|monica|google/i.test(v.name)) ||
-    voices.find((v) => /^es/i.test(v.lang)) ||
-    voices[0]
-  );
+  const spanish = voices.filter((v) => /^es/i.test(v.lang));
+  if (spanish.length === 0) return voices[0];
+
+  // 1) Coincidencia por género en español
+  const matched = spanish.find((v) => guessGender(v) === gender);
+  if (matched) return matched;
+
+  // 2) Si pidió masculino y no hay match, evita las claramente femeninas
+  if (gender === "male") {
+    const notFemale = spanish.find((v) => guessGender(v) !== "female");
+    if (notFemale) return notFemale;
+  } else {
+    const notMale = spanish.find((v) => guessGender(v) !== "male");
+    if (notMale) return notMale;
+  }
+
+  return spanish[0];
+};
+
+const STORAGE_KEY = "tts.voiceGender";
+const loadGender = (): VoiceGender => {
+  if (typeof window === "undefined") return "female";
+  const v = window.localStorage.getItem(STORAGE_KEY);
+  return v === "male" || v === "female" ? v : "female";
 };
 
 export function useTTS() {
   const [speaking, setSpeaking] = useState(false);
   const [enabled, setEnabled] = useState(true);
+  const [gender, setGenderState] = useState<VoiceGender>(loadGender);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  const setGender = useCallback((g: VoiceGender) => {
+    setGenderState(g);
+    try { window.localStorage.setItem(STORAGE_KEY, g); } catch {}
+  }, []);
 
   const cancel = useCallback(() => {
     if (!isSpeechSynthesisSupported()) return;
@@ -112,18 +150,20 @@ export function useTTS() {
       if (!enabled || !text || !isSpeechSynthesisSupported()) return;
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      const v = pickSpanishVoice();
+      const v = pickSpanishVoice(gender);
       if (v) u.voice = v;
       u.lang = v?.lang || "es-ES";
       u.rate = 1;
-      u.pitch = 1;
+      // Si no encontramos voz del género solicitado, ajustamos pitch como fallback
+      const matched = v ? guessGender(v) === gender : false;
+      u.pitch = matched ? 1 : gender === "female" ? 1.25 : 0.8;
       u.onstart = () => setSpeaking(true);
       u.onend = () => setSpeaking(false);
       u.onerror = () => setSpeaking(false);
       utterRef.current = u;
       window.speechSynthesis.speak(u);
     },
-    [enabled]
+    [enabled, gender]
   );
 
   useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch {} }, []);
@@ -134,6 +174,9 @@ export function useTTS() {
     speaking,
     enabled,
     setEnabled,
+    gender,
+    setGender,
     supported: isSpeechSynthesisSupported(),
   };
 }
+
