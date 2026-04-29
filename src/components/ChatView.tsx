@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Scenario, Hostility } from "@/lib/scenarios";
 import { hostilityLabels } from "@/lib/scenarios";
-import { useDictation, useTTS } from "@/hooks/useSpeech";
+import { useDictation, useTTS, type VoiceGender } from "@/hooks/useSpeech";
+import InstallVoiceDialog from "./InstallVoiceDialog";
 
 export type Msg = { role: "user" | "assistant"; content: string };
 
