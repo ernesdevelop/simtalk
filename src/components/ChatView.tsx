@@ -31,21 +31,37 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const tts = useTTS();
   const lastSpokenRef = useRef<string>("");
   const interimTextRef = useRef("");
+  const inputRef = useRef("");
+  const autoSendRef = useRef(false);
   const dictation = useDictation({
     lang: "es-ES",
     onFinal: (t) => {
       interimTextRef.current = "";
-      setInput((prev) => (prev ? prev.trimEnd() + " " : "") + t.trim());
+      setInput((prev) => {
+        const next = (prev ? prev.trimEnd() + " " : "") + t.trim();
+        inputRef.current = next;
+        return next;
+      });
     },
     onInterim: (t) => {
       setInput((prev) => {
         const base = interimTextRef.current ? prev.slice(0, -interimTextRef.current.length).trimEnd() : prev;
         interimTextRef.current = t;
-        return t ? `${base}${base ? " " : ""}${t}` : base;
+        const next = t ? `${base}${base ? " " : ""}${t}` : base;
+        inputRef.current = next;
+        return next;
       });
     },
     onStop: () => {
       interimTextRef.current = "";
+      if (autoSendRef.current) {
+        autoSendRef.current = false;
+        const text = inputRef.current.trim();
+        if (text) {
+          // pequeño delay para asegurar que setInput haya aplicado el último valor
+          setTimeout(() => sendRef.current?.(), 50);
+        }
+      }
     },
     onError: (error) => {
       if (error === "not-allowed" || error === "service-not-allowed") {
