@@ -215,6 +215,8 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     }
   };
 
+  sendRef.current = send;
+
   const userMsgCount = messages.filter((m) => m.role === "user").length;
   const canFeedback = userMsgCount >= 2 && !isStreaming;
   const meta = hostilityLabels[hostility];
