@@ -23,21 +23,35 @@ interface UseDictationOptions {
 export function useDictation({ lang = "es-ES", onFinal, onInterim }: UseDictationOptions) {
   const [listening, setListening] = useState(false);
   const recRef = useRef<SR | null>(null);
+  const listeningRef = useRef(false);
+
+  // Refs estables para los callbacks (evita recrear `start` y perder el gesto en iOS)
+  const onFinalRef = useRef(onFinal);
+  const onInterimRef = useRef(onInterim);
+  useEffect(() => { onFinalRef.current = onFinal; }, [onFinal]);
+  useEffect(() => { onInterimRef.current = onInterim; }, [onInterim]);
+
+  const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   const stop = useCallback(() => {
-    try {
-      recRef.current?.stop();
-    } catch {}
+    listeningRef.current = false;
+    try { recRef.current?.stop(); } catch {}
     setListening(false);
   }, []);
 
+  // IMPORTANTE: `start` debe ser estable (sin deps que cambien) para que iOS Safari
+  // mantenga el contexto del gesto del usuario al invocar rec.start() sincrónicamente.
   const start = useCallback(() => {
-    if (listening) return;
+    if (listeningRef.current) return;
+
     const rec = getRecognition();
     if (!rec) return;
+
     rec.lang = lang;
-    rec.continuous = true;
+    // iOS Safari NO soporta continuous=true correctamente. Usar false.
+    rec.continuous = !isIOS;
     rec.interimResults = true;
+    rec.maxAlternatives = 1;
 
     let finalBuffer = "";
 
@@ -49,23 +63,34 @@ export function useDictation({ lang = "es-ES", onFinal, onInterim }: UseDictatio
         if (res.isFinal) finalBuffer += transcript;
         else interim += transcript;
       }
-      if (interim && onInterim) onInterim(interim);
+      if (interim) onInterimRef.current?.(interim);
       if (finalBuffer) {
-        onFinal(finalBuffer);
+        onFinalRef.current?.(finalBuffer);
         finalBuffer = "";
       }
     };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
+    rec.onend = () => {
+      listeningRef.current = false;
+      setListening(false);
+    };
+    rec.onerror = (e: any) => {
+      console.warn("[dictation] error:", e?.error || e);
+      listeningRef.current = false;
+      setListening(false);
+    };
 
     recRef.current = rec;
+    // Llamada síncrona — crítico para iOS
     try {
       rec.start();
+      listeningRef.current = true;
       setListening(true);
-    } catch {
+    } catch (err) {
+      console.warn("[dictation] start failed:", err);
+      listeningRef.current = false;
       setListening(false);
     }
-  }, [lang, listening, onFinal, onInterim]);
+  }, [lang, isIOS]);
 
   useEffect(() => () => { try { recRef.current?.abort(); } catch {} }, []);
 
