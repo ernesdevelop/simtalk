@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Scenario, Hostility } from "@/lib/scenarios";
 import { hostilityLabels } from "@/lib/scenarios";
+import { useDictation, useTTS } from "@/hooks/useSpeech";
 
 export type Msg = { role: "user" | "assistant"; content: string };
 
@@ -25,6 +26,50 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const tts = useTTS();
+  const lastSpokenRef = useRef<string>("");
+  const dictation = useDictation({
+    lang: "es-ES",
+    onFinal: (t) => setInput((prev) => (prev ? prev.trimEnd() + " " : "") + t.trim()),
+  });
+
+  // Habla el primer mensaje al montar
+  useEffect(() => {
+    if (tts.enabled && tts.supported && scenario.opener) {
+      lastSpokenRef.current = scenario.opener;
+      tts.speak(scenario.opener);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Habla la última respuesta del asistente cuando termina el streaming
+  useEffect(() => {
+    if (isStreaming) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (last.content === lastSpokenRef.current) return;
+    lastSpokenRef.current = last.content;
+    if (tts.enabled) tts.speak(last.content);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming, messages]);
+
+  const toggleVoice = () => {
+    if (tts.speaking) tts.cancel();
+    tts.setEnabled(!tts.enabled);
+  };
+
+  const toggleMic = () => {
+    if (!dictation.supported) {
+      toast.error("Tu navegador no soporta dictado por voz. Prueba Chrome o Edge.");
+      return;
+    }
+    if (dictation.listening) dictation.stop();
+    else {
+      tts.cancel(); // evita captar la voz de la IA
+      dictation.start();
+    }
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -134,6 +179,21 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               Hostilidad: <span className={meta.color}>{meta.label}</span>
             </div>
           </div>
+          {tts.supported && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleVoice}
+              className="shrink-0"
+              title={tts.enabled ? "Silenciar voz de la IA" : "Activar voz de la IA"}
+            >
+              {tts.enabled ? (
+                <Volume2 className={cn("h-5 w-5", tts.speaking && "text-primary animate-pulse")} />
+              ) : (
+                <VolumeX className="h-5 w-5 text-muted-foreground" />
+              )}
+            </Button>
+          )}
           <Button
             onClick={() => onRequestFeedback(messages)}
             disabled={!canFeedback}
@@ -174,6 +234,19 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
               className="min-h-[48px] max-h-32 resize-none rounded-xl bg-card"
               disabled={isStreaming}
             />
+            <Button
+              onClick={toggleMic}
+              disabled={isStreaming}
+              size="icon"
+              variant={dictation.listening ? "default" : "outline"}
+              className={cn(
+                "h-12 w-12 shrink-0 rounded-xl",
+                dictation.listening && "bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse"
+              )}
+              title={dictation.listening ? "Detener dictado" : "Dictar respuesta"}
+            >
+              {dictation.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
             <Button
               onClick={send}
               disabled={!input.trim() || isStreaming}
