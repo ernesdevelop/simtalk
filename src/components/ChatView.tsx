@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Scenario, Hostility } from "@/lib/scenarios";
 import { hostilityLabels } from "@/lib/scenarios";
+import { useDictation, useTTS } from "@/hooks/useSpeech";
 
 export type Msg = { role: "user" | "assistant"; content: string };
 
