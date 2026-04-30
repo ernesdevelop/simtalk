@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Sparkles, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -7,7 +7,16 @@ import { cn } from "@/lib/utils";
 import type { Scenario, Hostility } from "@/lib/scenarios";
 import { hostilityLabels } from "@/lib/scenarios";
 import { useDictation, useTTS, type VoiceGender } from "@/hooks/useSpeech";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import InstallVoiceDialog from "./InstallVoiceDialog";
+
+type DictationMode = "native" | "ai";
+const DICTATION_MODE_KEY = "dictation.mode";
+const loadDictationMode = (): DictationMode => {
+  if (typeof window === "undefined") return "native";
+  const v = window.localStorage.getItem(DICTATION_MODE_KEY);
+  return v === "ai" ? "ai" : "native";
+};
 
 export type Msg = { role: "user" | "assistant"; content: string };
 
