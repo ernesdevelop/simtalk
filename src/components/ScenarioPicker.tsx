@@ -165,19 +165,42 @@ const ScenarioPicker = ({ onStart }: Props) => {
             })}
           </div>
 
-          <div className="mt-10 flex justify-center">
+          <div className="mt-10 flex flex-col items-center gap-3">
             <Button
               size="lg"
               disabled={!selected}
-              onClick={() => selected && onStart(selected, hostility)}
+              onClick={handleStartClick}
               className="gradient-primary h-14 px-8 text-base font-semibold text-primary-foreground shadow-glow hover:opacity-95"
             >
               Empezar conversación
               <ChevronRight className="ml-1 h-5 w-5" />
             </Button>
+            {!keysReady && (
+              <p className="text-xs text-muted-foreground">
+                Necesitás configurar tu API key de IA en{" "}
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Ajustes
+                </button>
+                .
+              </p>
+            )}
           </div>
         </section>
       </div>
+
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setSettingsOpen(true)}
+        className="fixed right-4 top-4 z-20 h-10 w-10 rounded-full border-border bg-card/80 backdrop-blur"
+        title="Ajustes de IA"
+      >
+        <Settings className="h-4 w-4" />
+      </Button>
 
       <CustomScenarioDialog
         open={dialogOpen}
@@ -187,6 +210,8 @@ const ScenarioPicker = ({ onStart }: Props) => {
           setSelected(s);
         }}
       />
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 };
