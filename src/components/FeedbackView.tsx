@@ -34,17 +34,29 @@ const FeedbackView = ({ messages, scenario, hostility, onBack, onRestart }: Prop
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("feedback", {
-          body: {
+        const userKeys = loadUserKeys();
+        const apiKey = getActiveChatKey(userKeys);
+        if (!apiKey) {
+          throw new Error("Configurá tu API key en Ajustes para generar feedback.");
+        }
+        const resp = await fetch(FEEDBACK_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "x-user-provider": userKeys.provider,
+            "x-user-api-key": apiKey,
+          },
+          body: JSON.stringify({
             messages,
             scenarioTitle: scenario.title,
             scenarioContext: scenario.context,
             hostility,
-          },
+          }),
         });
+        const data = await resp.json();
         if (cancelled) return;
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+        if (!resp.ok || data?.error) throw new Error(data?.error || `HTTP ${resp.status}`);
         setFeedback(data.feedback);
       } catch (e: any) {
         console.error(e);
