@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { scenarios, hostilityLabels, type Scenario, type Hostility } from "@/lib/scenarios";
 import { useCustomScenarios, deleteCustomScenario } from "@/lib/customScenarios";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, Settings, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import CustomScenarioDialog from "./CustomScenarioDialog";
+import SettingsDialog from "./SettingsDialog";
+import { hasChatKey, loadUserKeys } from "@/lib/userKeys";
 
 interface Props {
   onStart: (scenario: Scenario, hostility: Hostility) => void;
@@ -14,7 +17,24 @@ const ScenarioPicker = ({ onStart }: Props) => {
   const [selected, setSelected] = useState<Scenario | null>(null);
   const [hostility, setHostility] = useState<Hostility>("medium");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [keysReady, setKeysReady] = useState(() => hasChatKey(loadUserKeys()));
   const { items: customScenarios, refresh } = useCustomScenarios();
+
+  useEffect(() => {
+    const handler = () => setKeysReady(hasChatKey(loadUserKeys()));
+    window.addEventListener("user-keys-changed", handler);
+    return () => window.removeEventListener("user-keys-changed", handler);
+  }, []);
+
+  const handleStartClick = () => {
+    if (!hasChatKey(loadUserKeys())) {
+      toast.error("Configurá tu API key en Ajustes para empezar.");
+      setSettingsOpen(true);
+      return;
+    }
+    if (selected) onStart(selected, hostility);
+  };
 
   const allScenarios = [...customScenarios, ...scenarios];
 
