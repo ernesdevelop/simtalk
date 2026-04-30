@@ -85,6 +85,20 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     },
   });
 
+  const recorder = useAudioRecorder({
+    onTranscript: (text) => {
+      sendRef.current?.(text);
+    },
+    onError: (msg) => toast.error(msg),
+  });
+
+  const changeDictationMode = (m: DictationMode) => {
+    if (dictation.listening) dictation.stop();
+    if (recorder.recording) recorder.stop();
+    setDictationMode(m);
+    try { window.localStorage.setItem(DICTATION_MODE_KEY, m); } catch {}
+  };
+
   // Habla el primer mensaje al montar
   useEffect(() => {
     if (tts.enabled && tts.supported && scenario.opener) {
