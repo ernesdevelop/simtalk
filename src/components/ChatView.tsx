@@ -49,6 +49,8 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const voiceFinalRef = useRef("");
   const voiceInterimRef = useRef("");
   const autoSendRef = useRef(false);
+  const [dictationMode, setDictationMode] = useState<DictationMode>(loadDictationMode);
+
   const dictation = useDictation({
     lang: "es-ES",
     onFinal: (t) => {
