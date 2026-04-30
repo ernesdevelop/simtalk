@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { loadUserKeys } from "@/lib/userKeys";
 
 const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`;
 
@@ -61,6 +62,12 @@ export function useAudioRecorder({ onTranscript, onError }: UseAudioRecorderOpti
 
         try {
           setTranscribing(true);
+          const userKeys = loadUserKeys();
+          if (!userKeys.elevenlabs.trim()) {
+            onError?.("Configurá tu API key de ElevenLabs en Ajustes para usar el modo IA.");
+            setTranscribing(false);
+            return;
+          }
           const fd = new FormData();
           fd.append("audio", blob, "audio.webm");
           fd.append("language", "spa");
@@ -68,6 +75,7 @@ export function useAudioRecorder({ onTranscript, onError }: UseAudioRecorderOpti
             method: "POST",
             headers: {
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              "x-user-stt-api-key": userKeys.elevenlabs.trim(),
             },
             body: fd,
           });

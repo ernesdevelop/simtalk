@@ -1,6 +1,7 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-user-stt-api-key",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -10,11 +11,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
+    // Prioriza la key del usuario; si no, usa la del proyecto (modo trial)
+    const userKey = req.headers.get("x-user-stt-api-key") || "";
+    const apiKey = userKey || Deno.env.get("ELEVENLABS_API_KEY") || "";
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "ELEVENLABS_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Configura tu API key de ElevenLabs en Ajustes." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -22,8 +24,7 @@ Deno.serve(async (req) => {
     const file = inForm.get("audio");
     if (!(file instanceof File) && !(file instanceof Blob)) {
       return new Response(JSON.stringify({ error: "audio file required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -44,21 +45,18 @@ Deno.serve(async (req) => {
       const err = await resp.text();
       console.error("ElevenLabs STT error:", resp.status, err);
       return new Response(JSON.stringify({ error: err || `STT failed: ${resp.status}` }), {
-        status: resp.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await resp.json();
     return new Response(JSON.stringify({ text: data.text || "" }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("transcribe error:", e);
     return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
