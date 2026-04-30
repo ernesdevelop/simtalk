@@ -181,11 +181,25 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     setIsStreaming(true);
 
     try {
+      const userKeys = loadUserKeys();
+      const apiKey = getActiveChatKey(userKeys);
+      if (!apiKey) {
+        toast.error("Configurá tu API key en Ajustes para chatear.");
+        setIsStreaming(false);
+        // Revertir el mensaje optimista
+        setMessages(messages);
+        setInput(text);
+        inputRef.current = text;
+        return;
+      }
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          "x-user-provider": userKeys.provider,
+          "x-user-api-key": apiKey,
         },
         body: JSON.stringify({
           messages: next,
@@ -201,11 +215,17 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
         return;
       }
       if (resp.status === 402) {
-        toast.error("Se requieren créditos en tu workspace de Lovable AI.");
+        toast.error("Tu API key se quedó sin crédito.");
         setIsStreaming(false);
         return;
       }
-      if (!resp.ok || !resp.body) throw new Error("stream failed");
+      if (!resp.ok || !resp.body) {
+        try {
+          const err = await resp.clone().json();
+          if (err?.error) toast.error(String(err.error).slice(0, 200));
+        } catch {}
+        throw new Error("stream failed");
+      }
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
