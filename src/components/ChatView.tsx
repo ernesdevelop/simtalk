@@ -8,6 +8,7 @@ import type { Scenario, Hostility } from "@/lib/scenarios";
 import { hostilityLabels } from "@/lib/scenarios";
 import { useDictation, useTTS, type VoiceGender } from "@/hooks/useSpeech";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { getActiveChatKey, loadUserKeys } from "@/lib/userKeys";
 import InstallVoiceDialog from "./InstallVoiceDialog";
 
 type DictationMode = "native" | "ai";
