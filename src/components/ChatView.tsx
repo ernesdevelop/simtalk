@@ -356,6 +356,41 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
 
       <div className="sticky bottom-0 border-t border-border bg-background/80 backdrop-blur-lg">
         <div className="mx-auto max-w-3xl px-4 py-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="inline-flex items-center rounded-lg border border-border bg-card overflow-hidden text-xs">
+              <button
+                type="button"
+                onClick={() => changeDictationMode("native")}
+                className={cn(
+                  "px-2.5 py-1 transition-colors",
+                  dictationMode === "native"
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Dictado nativo del navegador (rápido, gratis)"
+              >
+                Nativo
+              </button>
+              <button
+                type="button"
+                onClick={() => changeDictationMode("ai")}
+                className={cn(
+                  "px-2.5 py-1 border-l border-border transition-colors",
+                  dictationMode === "ai"
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Transcripción con IA (más precisa)"
+              >
+                IA
+              </button>
+            </div>
+            {dictationMode === "ai" && (
+              <span className="text-[10px] text-muted-foreground">
+                Mantené presionado al hablar y soltá para enviar
+              </span>
+            )}
+          </div>
           <div className="flex items-end gap-2">
             <Textarea
               value={input}
@@ -369,23 +404,44 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
                   send();
                 }
               }}
-              placeholder={dictation.listening ? "Escuchando…" : "Escribe tu respuesta…"}
+              placeholder={
+                recorder.recording
+                  ? "Grabando…"
+                  : recorder.transcribing
+                  ? "Transcribiendo…"
+                  : dictation.listening
+                  ? "Escuchando…"
+                  : "Escribe tu respuesta…"
+              }
               rows={1}
               className="min-h-[48px] max-h-32 resize-none rounded-xl bg-card"
-              disabled={isStreaming || dictation.listening}
+              disabled={isStreaming || dictation.listening || recorder.recording || recorder.transcribing}
             />
             <Button
               onClick={toggleMic}
-              disabled={isStreaming}
+              disabled={isStreaming || recorder.transcribing}
               size="icon"
-              variant={dictation.listening ? "default" : "outline"}
+              variant={dictation.listening || recorder.recording ? "default" : "outline"}
               className={cn(
                 "h-12 w-12 shrink-0 rounded-xl",
-                dictation.listening && "bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse"
+                (dictation.listening || recorder.recording) &&
+                  "bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse"
               )}
-              title={dictation.listening ? "Detener dictado" : "Dictar respuesta"}
+              title={
+                recorder.transcribing
+                  ? "Transcribiendo…"
+                  : dictation.listening || recorder.recording
+                  ? "Detener y enviar"
+                  : "Dictar respuesta"
+              }
             >
-              {dictation.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              {recorder.transcribing ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : dictation.listening || recorder.recording ? (
+                <MicOff className="h-5 w-5" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
             </Button>
             <Button
               onClick={() => send()}
