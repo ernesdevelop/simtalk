@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Sparkles, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -7,7 +7,16 @@ import { cn } from "@/lib/utils";
 import type { Scenario, Hostility } from "@/lib/scenarios";
 import { hostilityLabels } from "@/lib/scenarios";
 import { useDictation, useTTS, type VoiceGender } from "@/hooks/useSpeech";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import InstallVoiceDialog from "./InstallVoiceDialog";
+
+type DictationMode = "native" | "ai";
+const DICTATION_MODE_KEY = "dictation.mode";
+const loadDictationMode = (): DictationMode => {
+  if (typeof window === "undefined") return "native";
+  const v = window.localStorage.getItem(DICTATION_MODE_KEY);
+  return v === "ai" ? "ai" : "native";
+};
 
 export type Msg = { role: "user" | "assistant"; content: string };
 
@@ -40,6 +49,8 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   const voiceFinalRef = useRef("");
   const voiceInterimRef = useRef("");
   const autoSendRef = useRef(false);
+  const [dictationMode, setDictationMode] = useState<DictationMode>(loadDictationMode);
+
   const dictation = useDictation({
     lang: "es-ES",
     onFinal: (t) => {
@@ -74,6 +85,20 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
     },
   });
 
+  const recorder = useAudioRecorder({
+    onTranscript: (text) => {
+      sendRef.current?.(text);
+    },
+    onError: (msg) => toast.error(msg),
+  });
+
+  const changeDictationMode = (m: DictationMode) => {
+    if (dictation.listening) dictation.stop();
+    if (recorder.recording) recorder.stop();
+    setDictationMode(m);
+    try { window.localStorage.setItem(DICTATION_MODE_KEY, m); } catch {}
+  };
+
   // Habla el primer mensaje al montar
   useEffect(() => {
     if (tts.enabled && tts.supported && scenario.opener) {
@@ -100,14 +125,29 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   };
 
   const toggleMic = () => {
+    if (dictationMode === "ai") {
+      if (!recorder.supported) {
+        toast.error("Tu navegador no soporta grabación de audio.");
+        return;
+      }
+      if (recorder.recording) {
+        recorder.stop();
+      } else {
+        tts.cancel();
+        recorder.start();
+      }
+      return;
+    }
+
+    // Modo nativo
     if (!dictation.supported) {
       const ua = navigator.userAgent;
       const isIOS = /iPhone|iPad|iPod/i.test(ua);
       const isIOSChromeOrFirefox = isIOS && /CriOS|FxiOS/i.test(ua);
       if (isIOSChromeOrFirefox) {
-        toast.error("En iPhone, el dictado por voz solo funciona en Safari. Abre la app desde Safari.");
+        toast.error("En iPhone, el dictado nativo solo funciona en Safari. Probá el modo IA o abrí la app desde Safari.");
       } else {
-        toast.error("Tu navegador no soporta dictado por voz. Prueba Safari (iPhone) o Chrome.");
+        toast.error("Tu navegador no soporta dictado nativo. Probá el modo IA.");
       }
       return;
     }
@@ -115,11 +155,11 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
       autoSendRef.current = true;
       dictation.stop();
     } else {
-      tts.cancel(); // evita captar la voz de la IA
+      tts.cancel();
       autoSendRef.current = false;
       voiceFinalRef.current = "";
       voiceInterimRef.current = "";
-      dictation.start(); // llamada síncrona desde el gesto del usuario (crítico en iOS)
+      dictation.start();
     }
   };
 
@@ -316,6 +356,41 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
 
       <div className="sticky bottom-0 border-t border-border bg-background/80 backdrop-blur-lg">
         <div className="mx-auto max-w-3xl px-4 py-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="inline-flex items-center rounded-lg border border-border bg-card overflow-hidden text-xs">
+              <button
+                type="button"
+                onClick={() => changeDictationMode("native")}
+                className={cn(
+                  "px-2.5 py-1 transition-colors",
+                  dictationMode === "native"
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Dictado nativo del navegador (rápido, gratis)"
+              >
+                Nativo
+              </button>
+              <button
+                type="button"
+                onClick={() => changeDictationMode("ai")}
+                className={cn(
+                  "px-2.5 py-1 border-l border-border transition-colors",
+                  dictationMode === "ai"
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Transcripción con IA (más precisa)"
+              >
+                IA
+              </button>
+            </div>
+            {dictationMode === "ai" && (
+              <span className="text-[10px] text-muted-foreground">
+                Mantené presionado al hablar y soltá para enviar
+              </span>
+            )}
+          </div>
           <div className="flex items-end gap-2">
             <Textarea
               value={input}
@@ -329,23 +404,44 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
                   send();
                 }
               }}
-              placeholder={dictation.listening ? "Escuchando…" : "Escribe tu respuesta…"}
+              placeholder={
+                recorder.recording
+                  ? "Grabando…"
+                  : recorder.transcribing
+                  ? "Transcribiendo…"
+                  : dictation.listening
+                  ? "Escuchando…"
+                  : "Escribe tu respuesta…"
+              }
               rows={1}
               className="min-h-[48px] max-h-32 resize-none rounded-xl bg-card"
-              disabled={isStreaming || dictation.listening}
+              disabled={isStreaming || dictation.listening || recorder.recording || recorder.transcribing}
             />
             <Button
               onClick={toggleMic}
-              disabled={isStreaming}
+              disabled={isStreaming || recorder.transcribing}
               size="icon"
-              variant={dictation.listening ? "default" : "outline"}
+              variant={dictation.listening || recorder.recording ? "default" : "outline"}
               className={cn(
                 "h-12 w-12 shrink-0 rounded-xl",
-                dictation.listening && "bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse"
+                (dictation.listening || recorder.recording) &&
+                  "bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse"
               )}
-              title={dictation.listening ? "Detener dictado" : "Dictar respuesta"}
+              title={
+                recorder.transcribing
+                  ? "Transcribiendo…"
+                  : dictation.listening || recorder.recording
+                  ? "Detener y enviar"
+                  : "Dictar respuesta"
+              }
             >
-              {dictation.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              {recorder.transcribing ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : dictation.listening || recorder.recording ? (
+                <MicOff className="h-5 w-5" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
             </Button>
             <Button
               onClick={() => send()}
