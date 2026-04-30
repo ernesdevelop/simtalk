@@ -125,14 +125,29 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
   };
 
   const toggleMic = () => {
+    if (dictationMode === "ai") {
+      if (!recorder.supported) {
+        toast.error("Tu navegador no soporta grabación de audio.");
+        return;
+      }
+      if (recorder.recording) {
+        recorder.stop();
+      } else {
+        tts.cancel();
+        recorder.start();
+      }
+      return;
+    }
+
+    // Modo nativo
     if (!dictation.supported) {
       const ua = navigator.userAgent;
       const isIOS = /iPhone|iPad|iPod/i.test(ua);
       const isIOSChromeOrFirefox = isIOS && /CriOS|FxiOS/i.test(ua);
       if (isIOSChromeOrFirefox) {
-        toast.error("En iPhone, el dictado por voz solo funciona en Safari. Abre la app desde Safari.");
+        toast.error("En iPhone, el dictado nativo solo funciona en Safari. Probá el modo IA o abrí la app desde Safari.");
       } else {
-        toast.error("Tu navegador no soporta dictado por voz. Prueba Safari (iPhone) o Chrome.");
+        toast.error("Tu navegador no soporta dictado nativo. Probá el modo IA.");
       }
       return;
     }
@@ -140,11 +155,11 @@ const ChatView = ({ scenario, hostility, onBack, onRequestFeedback }: Props) => 
       autoSendRef.current = true;
       dictation.stop();
     } else {
-      tts.cancel(); // evita captar la voz de la IA
+      tts.cancel();
       autoSendRef.current = false;
       voiceFinalRef.current = "";
       voiceInterimRef.current = "";
-      dictation.start(); // llamada síncrona desde el gesto del usuario (crítico en iOS)
+      dictation.start();
     }
   };
 
