@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle2, AlertCircle, Lightbulb, RefreshCw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { getActiveChatKey, loadUserKeys } from "@/lib/userKeys";
+
 
 const FEEDBACK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/feedback`;
 
@@ -34,18 +34,11 @@ const FeedbackView = ({ messages, scenario, hostility, onBack, onRestart }: Prop
     let cancelled = false;
     (async () => {
       try {
-        const userKeys = loadUserKeys();
-        const apiKey = getActiveChatKey(userKeys);
-        if (!apiKey) {
-          throw new Error("Configurá tu API key en Ajustes para generar feedback.");
-        }
         const resp = await fetch(FEEDBACK_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            "x-user-provider": userKeys.provider,
-            "x-user-api-key": apiKey,
           },
           body: JSON.stringify({
             messages,
