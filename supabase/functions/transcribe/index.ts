@@ -1,7 +1,6 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-user-stt-api-key",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -11,12 +10,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Prioriza la key del usuario; si no, usa la del proyecto (modo trial)
-    const userKey = req.headers.get("x-user-stt-api-key") || "";
-    const apiKey = userKey || Deno.env.get("ELEVENLABS_API_KEY") || "";
+    const apiKey = Deno.env.get("ELEVENLABS_API_KEY") || "";
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "Configura tu API key de ElevenLabs en Ajustes." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "ELEVENLABS_API_KEY no configurada" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
