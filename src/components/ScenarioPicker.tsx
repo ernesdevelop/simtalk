@@ -1,13 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { scenarios, hostilityLabels, type Scenario, type Hostility } from "@/lib/scenarios";
 import { useCustomScenarios, deleteCustomScenario } from "@/lib/customScenarios";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Plus, Settings, Sparkles, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { ChevronRight, Plus, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CustomScenarioDialog from "./CustomScenarioDialog";
-import SettingsDialog from "./SettingsDialog";
-import { hasChatKey, loadUserKeys } from "@/lib/userKeys";
 
 interface Props {
   onStart: (scenario: Scenario, hostility: Hostility) => void;
@@ -17,22 +14,9 @@ const ScenarioPicker = ({ onStart }: Props) => {
   const [selected, setSelected] = useState<Scenario | null>(null);
   const [hostility, setHostility] = useState<Hostility>("medium");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [keysReady, setKeysReady] = useState(() => hasChatKey(loadUserKeys()));
   const { items: customScenarios, refresh } = useCustomScenarios();
 
-  useEffect(() => {
-    const handler = () => setKeysReady(hasChatKey(loadUserKeys()));
-    window.addEventListener("user-keys-changed", handler);
-    return () => window.removeEventListener("user-keys-changed", handler);
-  }, []);
-
   const handleStartClick = () => {
-    if (!hasChatKey(loadUserKeys())) {
-      toast.error("Configurá tu API key en Ajustes para empezar.");
-      setSettingsOpen(true);
-      return;
-    }
     if (selected) onStart(selected, hostility);
   };
 
@@ -175,32 +159,9 @@ const ScenarioPicker = ({ onStart }: Props) => {
               Empezar conversación
               <ChevronRight className="ml-1 h-5 w-5" />
             </Button>
-            {!keysReady && (
-              <p className="text-xs text-muted-foreground">
-                Necesitás configurar tu API key de IA en{" "}
-                <button
-                  type="button"
-                  onClick={() => setSettingsOpen(true)}
-                  className="text-primary underline-offset-2 hover:underline"
-                >
-                  Ajustes
-                </button>
-                .
-              </p>
-            )}
           </div>
         </section>
       </div>
-
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => setSettingsOpen(true)}
-        className="fixed right-4 top-4 z-20 h-10 w-10 rounded-full border-border bg-card/80 backdrop-blur"
-        title="Ajustes de IA"
-      >
-        <Settings className="h-4 w-4" />
-      </Button>
 
       <CustomScenarioDialog
         open={dialogOpen}
@@ -210,8 +171,6 @@ const ScenarioPicker = ({ onStart }: Props) => {
           setSelected(s);
         }}
       />
-
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 };
