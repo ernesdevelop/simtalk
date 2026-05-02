@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { loadUserKeys } from "@/lib/userKeys";
+
 
 const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`;
 
